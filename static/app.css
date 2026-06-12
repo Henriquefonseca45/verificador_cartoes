@@ -1,0 +1,158 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1d2939;
+  background: #eef3f7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background:
+    radial-gradient(circle at top left, #ffffff 0, transparent 38%),
+    linear-gradient(145deg, #e9f0f5, #d8e4ec);
+}
+
+.card {
+  width: min(100%, 620px);
+  padding: 32px;
+  border: 1px solid #d2dde5;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 70px rgba(31, 60, 82, 0.14);
+}
+
+.wide {
+  width: min(100%, 760px);
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+header img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0;
+  font-size: clamp(1.7rem, 4vw, 2.35rem);
+  line-height: 1.1;
+}
+
+h2 {
+  margin-top: 30px;
+  font-size: 1.05rem;
+}
+
+.eyebrow {
+  margin-bottom: 6px;
+  color: #d53832;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.intro {
+  color: #526575;
+  line-height: 1.6;
+}
+
+form {
+  display: grid;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.upload {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 2px dashed #aabdc9;
+  border-radius: 14px;
+  background: #f7fafc;
+  font-weight: 700;
+}
+
+input[type="file"] {
+  width: 100%;
+  color: #526575;
+}
+
+button,
+.button {
+  display: inline-block;
+  padding: 14px 20px;
+  border: 0;
+  border-radius: 10px;
+  color: #fff;
+  background: #d53832;
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:hover,
+.button:hover {
+  background: #b92722;
+}
+
+.hint,
+.back {
+  color: #667b8a;
+  font-size: 0.88rem;
+}
+
+.alert,
+.success {
+  padding: 13px 15px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.alert {
+  color: #922b25;
+  background: #fde9e7;
+}
+
+.success {
+  color: #216e46;
+  background: #e7f7ee;
+}
+
+ul {
+  padding-left: 22px;
+}
+
+li {
+  margin: 9px 0;
+}
+
+a {
+  color: #a52c27;
+}
+
+.back {
+  display: inline-block;
+  margin-top: 24px;
+}

@@ -22,6 +22,25 @@ Esta versão já considera o layout observado nos arquivos enviados:
 
 ## Como usar
 
+### Interface desktop
+
+Abra o executavel gerado para Windows.
+
+### Interface web com Docker
+
+Rode:
+
+```bash
+docker compose up -d --build
+```
+
+Acesse `http://localhost:8080`, envie os PDFs e baixe os resultados.
+
+Os arquivos processados ficam armazenados no volume Docker
+`verificador_data`.
+
+### Linha de comando
+
 1. Coloque os PDFs de entrada na pasta `input/`.
 2. Rode:
 
@@ -42,3 +61,18 @@ python main.py
 - WEG GRAVATAI = LARANJA
 - WEG BETIM = VERMELHO
 - BLUTRAFOS = BRANCO
+
+## Implantacao no Dockhand
+
+1. Em **Settings > Git**, cadastre este repositorio e a credencial do GitHub.
+2. Em **Compose Stacks**, escolha criar uma stack a partir do Git.
+3. Selecione a branch `main` e o arquivo `docker-compose.yml`.
+4. Implante a stack.
+
+A porta padrao e `8080`. Para alterar, configure a variavel `APP_PORT`.
+O limite padrao de upload e 200 MB e pode ser alterado com
+`MAX_UPLOAD_MB`.
+
+Como a interface nao possui login proprio e armazena os PDFs processados,
+publique-a apenas em rede interna ou proteja-a com autenticacao no proxy
+reverso.

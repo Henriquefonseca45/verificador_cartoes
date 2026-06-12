@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resultado - Verificador de Cartoes RVB</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <main class="card wide">
+    <header>
+      <img src="{{ url_for('logo') }}" alt="RVB">
+      <div>
+        <p class="eyebrow">RVB</p>
+        <h1>Resultado do processamento</h1>
+      </div>
+    </header>
+
+    {% if error %}
+      <p class="alert">{{ error }}</p>
+    {% else %}
+      <p class="success">Processamento concluido com sucesso.</p>
+      <a class="button" href="{{ url_for('download_zip', job_id=job_id) }}">Baixar todos os resultados</a>
+    {% endif %}
+
+    {% if output_files %}
+      <h2>PDFs gerados</h2>
+      <ul>
+        {% for filename in output_files %}
+          <li><a href="{{ url_for('download_file', job_id=job_id, folder='output', filename=filename) }}">{{ filename }}</a></li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <h2>Logs</h2>
+    <ul>
+      {% for filename in log_files %}
+        {% if filename == 'processamento.log' %}
+          <li><a href="{{ url_for('download_process_log', job_id=job_id) }}">{{ filename }}</a></li>
+        {% else %}
+          <li><a href="{{ url_for('download_file', job_id=job_id, folder='logs', filename=filename) }}">{{ filename }}</a></li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+
+    <a class="back" href="{{ url_for('index') }}">Processar novos arquivos</a>
+  </main>
+</body>
+</html>
