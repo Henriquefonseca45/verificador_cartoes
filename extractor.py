@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Dict, List
 
 import pymupdf as fitz
 
-from config import ENABLE_OCR_FALLBACK, OCR_LANGUAGE
+from config import CLIENT_ALIASES, ENABLE_OCR_FALLBACK, OCR_LANGUAGE, PROCESS_COLUMNS
 from reader_pdf import OpenPage
 from rules import normalize_text
 
@@ -35,6 +36,34 @@ def _clean_lines(text: str) -> List[str]:
     return [line.strip() for line in text.splitlines() if normalize_text(line)]
 
 
+def _collapse_repeated_token(token: str, candidates: List[str] | None = None) -> str:
+    raw = str(token or "").strip()
+    norm = normalize_text(raw)
+    if not norm:
+        return raw
+
+    if candidates:
+        for candidate in sorted(candidates, key=len, reverse=True):
+            candidate_norm = normalize_text(candidate)
+            if candidate_norm and norm == candidate_norm * (len(norm) // len(candidate_norm)):
+                return candidate
+
+    for size in range(1, (len(norm) // 2) + 1):
+        if len(norm) % size:
+            continue
+        part = norm[:size]
+        if part and part * (len(norm) // size) == norm:
+            return part
+
+    return raw
+
+
+def _normalize_repeated_text(text: str) -> str:
+    tokens = re.findall(r"[A-Z0-9ÃƒÃ‡Ã‰Ã“Ã€ÃšÃÕÃÂÃÊÃÔÃÄÃËÃÏÃ–ÃÜÇÁÉÍÓÚÀÕÂÊÔÄËÏÖÜ_-]+|[^\s]+", normalize_text(text))
+    normalized = [_collapse_repeated_token(token) for token in tokens]
+    return " ".join(token for token in normalized if token)
+
+
 def _line_after_marker(lines: List[str], marker: str) -> str:
     marker_norm = normalize_text(marker)
     for idx, line in enumerate(lines):
@@ -43,6 +72,96 @@ def _line_after_marker(lines: List[str], marker: str) -> str:
                 if normalize_text(next_line):
                     return next_line.strip()
     return ""
+
+
+def _find_known_client(text: str) -> str:
+    normalized = _normalize_repeated_text(text)
+    aliases = [client for client in CLIENT_ALIASES if client != "__DEFAULT__"]
+    for client in sorted(aliases, key=len, reverse=True):
+        if normalize_text(client) in normalized:
+            return CLIENT_ALIASES.get(client, client)
+    return ""
+
+
+def _extract_process_tokens(line: str) -> List[str]:
+    compact = re.sub(r"[^A-Z0-9-]+", "", normalize_text(line))
+    tokens: List[str] = []
+    pos = 0
+    process_names = sorted(PROCESS_COLUMNS, key=len, reverse=True)
+
+    while pos < len(compact):
+        matched = False
+        for process in process_names:
+            proc = normalize_text(process)
+            if compact.startswith(proc, pos):
+                end = pos + len(proc)
+                while compact.startswith(proc, end):
+                    end += len(proc)
+                tokens.append(process)
+                pos = end
+                matched = True
+                break
+        if not matched:
+            pos += 1
+
+    return tokens
+
+
+def _extract_status_tokens(line: str) -> List[str]:
+    compact = re.sub(r"[^A-Z0-9Ãƒ]+", "", normalize_text(line))
+    tokens: List[str] = []
+    pos = 0
+
+    while pos < len(compact):
+        if compact.startswith("SIM", pos):
+            end = pos + 3
+            while compact.startswith("SIM", end):
+                end += 3
+            tokens.append("SIM")
+            pos = end
+            continue
+        if compact.startswith("NAO", pos) or compact.startswith("NÃƒO", pos):
+            marker = "NAO" if compact.startswith("NAO", pos) else "NÃƒO"
+            end = pos + len(marker)
+            while compact.startswith(marker, end):
+                end += len(marker)
+            tokens.append("NAO")
+            pos = end
+            continue
+        pos += 1
+
+    return tokens
+
+
+def _normalize_repeated_text(text: str) -> str:
+    tokens = re.findall(r"[A-Z0-9_-]+|[^\s]+", normalize_text(text))
+    normalized = [_collapse_repeated_token(token) for token in tokens]
+    return " ".join(token for token in normalized if token)
+
+
+def _extract_status_tokens(line: str) -> List[str]:
+    compact = re.sub(r"[^A-Z0-9]+", "", normalize_text(line).replace("NÃƒO", "NAO"))
+    tokens: List[str] = []
+    pos = 0
+
+    while pos < len(compact):
+        if compact.startswith("SIM", pos):
+            end = pos + 3
+            while compact.startswith("SIM", end):
+                end += 3
+            tokens.append("SIM")
+            pos = end
+            continue
+        if compact.startswith("NAO", pos):
+            end = pos + 3
+            while compact.startswith("NAO", end):
+                end += 3
+            tokens.append("NAO")
+            pos = end
+            continue
+        pos += 1
+
+    return tokens
 
 
 def _parse_process_values(lines: List[str]) -> Dict[str, str]:
@@ -60,8 +179,8 @@ def _parse_process_values(lines: List[str]) -> Dict[str, str]:
                     break
             break
 
-    process_tokens = process_line.split()
-    status_tokens = status_line.split()
+    process_tokens = _extract_process_tokens(process_line)
+    status_tokens = _extract_status_tokens(status_line)
     values: Dict[str, str] = {}
 
     if process_tokens and status_tokens and len(process_tokens) == len(status_tokens):
@@ -121,7 +240,7 @@ def extract_card_data(open_page: OpenPage) -> ExtractedCardData:
             skip_card=True,
         )
 
-    raw_client = _line_after_marker(lines, "CLIENTE")
+    raw_client = _find_known_client(full_text) or _line_after_marker(lines, "CLIENTE")
     process_values = _parse_process_values(lines)
     process_line = " ".join(process_values.keys())
     has_technical_drawing = _parse_technical_drawing(lines)
