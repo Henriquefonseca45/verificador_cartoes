@@ -97,6 +97,25 @@ def _fit_rect_preserve_aspect(target: fitz.Rect, source: fitz.Rect) -> fitz.Rect
     return fitz.Rect(x0, y0, x0 + w, y0 + h)
 
 
+def _show_pdf_page_if_not_empty(
+    target_page: fitz.Page,
+    target_rect: fitz.Rect,
+    source_doc: fitz.Document,
+    source_page_number: int,
+    clip: fitz.Rect,
+) -> bool:
+    if target_rect.is_empty or clip.is_empty or target_rect.get_area() <= 0 or clip.get_area() <= 0:
+        return False
+
+    try:
+        target_page.show_pdf_page(target_rect, source_doc, source_page_number, clip=clip)
+        return True
+    except ValueError as exc:
+        if "nothing to show" in str(exc).lower():
+            return False
+        raise
+
+
 def _expand_rect(rect: fitz.Rect, page_rect: fitz.Rect, margin_x: float = 0.08, margin_y: float = 0.08) -> fitz.Rect:
     dx = max(8.0, rect.width * margin_x)
     dy = max(8.0, rect.height * margin_y)
@@ -344,7 +363,7 @@ def export_grouped_pdfs(grouped_cards: Dict[str, List[ClassifiedCard]], output_d
                         continue
                     back_slot = _back_slot_index(slot_idx)
                     target = _fit_rect_preserve_aspect(_padded_slot_rect(back_slot), crop_rect)
-                    back_page.show_pdf_page(target, src_doc, card.source.detail_page_number, clip=crop_rect)
+                    _show_pdf_page_if_not_empty(back_page, target, src_doc, card.source.detail_page_number, crop_rect)
 
             out_doc.save(output_path)
             out_doc.close()
