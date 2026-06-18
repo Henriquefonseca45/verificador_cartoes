@@ -1,0 +1,32 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  build-and-healthcheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build --tag verificador-cartoes:test .
+
+      - name: Start container
+        run: docker run --detach --name verificador-test --publish 8080:8080 verificador-cartoes:test
+
+      - name: Check health endpoint
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs verificador-test
+          exit 1

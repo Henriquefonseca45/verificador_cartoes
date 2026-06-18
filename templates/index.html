@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verificador de Cartoes RVB</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <main class="card">
+    <header>
+      <img src="{{ url_for('logo') }}" alt="RVB">
+      <div>
+        <p class="eyebrow">RVB</p>
+        <h1>Verificador de Cartoes</h1>
+      </div>
+    </header>
+
+    <p class="intro">
+      Envie os PDFs para classificar, agrupar e gerar os cartoes finais.
+    </p>
+
+    {% if error %}
+      <p class="alert">{{ error }}</p>
+    {% endif %}
+
+    <form action="{{ url_for('process_files') }}" method="post" enctype="multipart/form-data">
+      <label class="upload">
+        <span>Selecionar PDFs</span>
+        <input type="file" name="pdfs" accept="application/pdf,.pdf" multiple required>
+      </label>
+      <p class="hint">Limite total por envio: {{ max_upload_mb }} MB</p>
+      <button type="submit">Processar arquivos</button>
+    </form>
+  </main>
+</body>
+</html>
