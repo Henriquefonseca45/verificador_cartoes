@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import pymupdf as fitz
 
-from config import CLIENT_ALIASES, ENABLE_OCR_FALLBACK, OCR_LANGUAGE, PROCESS_COLUMNS
+from config import CARD_CLIENT_RECT_NORM, CARD_FIRST_PROCESS_RECT_NORM, CLIENT_ALIASES, ENABLE_OCR_FALLBACK, OCR_LANGUAGE, PROCESS_COLUMNS
 from reader_pdf import OpenPage
 from rules import normalize_text
 
@@ -67,11 +67,20 @@ def _normalize_repeated_text(text: str) -> str:
 def _line_after_marker(lines: List[str], marker: str) -> str:
     marker_norm = normalize_text(marker)
     for idx, line in enumerate(lines):
-        if normalize_text(line) == marker_norm:
+        if _collapse_repeated_token(normalize_text(line)) == marker_norm:
             for next_line in lines[idx + 1:]:
                 if normalize_text(next_line):
                     return next_line.strip()
     return ""
+
+
+def _relative_rect(parent: fitz.Rect, norm_rect) -> fitz.Rect:
+    return fitz.Rect(
+        parent.x0 + parent.width * norm_rect[0],
+        parent.y0 + parent.height * norm_rect[1],
+        parent.x0 + parent.width * norm_rect[2],
+        parent.y0 + parent.height * norm_rect[3],
+    )
 
 
 def _find_known_client(text: str) -> str:
@@ -81,6 +90,20 @@ def _find_known_client(text: str) -> str:
         if normalize_text(client) in normalized:
             return CLIENT_ALIASES.get(client, client)
     return ""
+
+
+def _clean_client_from_fixed_area(text: str) -> str:
+    client = _find_known_client(text)
+    if client:
+        return client
+
+    cleaned_lines = []
+    for line in _clean_lines(text):
+        cleaned = _normalize_repeated_text(line)
+        if normalize_text(cleaned) == "CLIENTE":
+            continue
+        cleaned_lines.append(cleaned)
+    return " ".join(cleaned_lines).strip()
 
 
 def _extract_process_tokens(line: str) -> List[str]:
@@ -105,6 +128,11 @@ def _extract_process_tokens(line: str) -> List[str]:
             pos += 1
 
     return tokens
+
+
+def _first_process_from_fixed_area(text: str) -> str:
+    tokens = _extract_process_tokens(text)
+    return tokens[0] if tokens else ""
 
 
 def _extract_status_tokens(line: str) -> List[str]:
@@ -169,7 +197,7 @@ def _parse_process_values(lines: List[str]) -> Dict[str, str]:
     status_line = ""
 
     for idx, line in enumerate(lines):
-        if normalize_text(line) == "ROTEIRO":
+        if _collapse_repeated_token(normalize_text(line)) == "ROTEIRO":
             if idx + 1 < len(lines):
                 process_line = lines[idx + 1].strip()
             for candidate in lines[idx + 2: idx + 5]:
@@ -194,6 +222,10 @@ def _parse_process_values(lines: List[str]) -> Dict[str, str]:
     return values
 
 
+def _normalize_marker_line(line: str) -> str:
+    return _normalize_repeated_text(line).replace(" ", "")
+
+
 def _parse_technical_drawing(lines: List[str]) -> bool:
     target = "DESENHO TECNICO"
 
@@ -208,8 +240,9 @@ def _parse_technical_drawing(lines: List[str]) -> bool:
 
     for idx, line in enumerate(lines):
         norm_line = normalize_text(line)
-        if target in norm_line:
-            same_line_status = parse_yes_no(norm_line.replace(target, " ", 1))
+        marker_line = _normalize_marker_line(line)
+        if target.replace(" ", "") in marker_line:
+            same_line_status = parse_yes_no(marker_line.replace(target.replace(" ", ""), " ", 1))
             if same_line_status is not None:
                 return same_line_status
             for candidate in lines[idx + 1: idx + 4]:
@@ -223,6 +256,10 @@ def extract_card_data(open_page: OpenPage) -> ExtractedCardData:
     page = open_page.page
     card_rect = open_page.source.card_rect
     full_text = extract_text_in_rect(page, card_rect)
+    client_rect = _relative_rect(card_rect, CARD_CLIENT_RECT_NORM)
+    first_process_rect = _relative_rect(card_rect, CARD_FIRST_PROCESS_RECT_NORM)
+    fixed_client_text = extract_text_in_rect(page, client_rect)
+    fixed_process_text = extract_text_in_rect(page, first_process_rect)
     lines = _clean_lines(full_text)
     normalized_full = normalize_text(full_text)
 
@@ -240,8 +277,11 @@ def extract_card_data(open_page: OpenPage) -> ExtractedCardData:
             skip_card=True,
         )
 
-    raw_client = _find_known_client(full_text) or _line_after_marker(lines, "CLIENTE")
+    raw_client = _clean_client_from_fixed_area(fixed_client_text) or _find_known_client(full_text) or _line_after_marker(lines, "CLIENTE")
     process_values = _parse_process_values(lines)
+    first_fixed_process = _first_process_from_fixed_area(fixed_process_text)
+    if first_fixed_process:
+        process_values = {first_fixed_process: "SIM"}
     process_line = " ".join(process_values.keys())
     has_technical_drawing = _parse_technical_drawing(lines)
 
@@ -251,6 +291,10 @@ def extract_card_data(open_page: OpenPage) -> ExtractedCardData:
         has_technical_drawing=has_technical_drawing,
         debug_text={
             "card_rect": str(card_rect),
+            "client_rect": str(client_rect),
+            "first_process_rect": str(first_process_rect),
+            "fixed_client_text": fixed_client_text,
+            "fixed_process_text": fixed_process_text,
             "raw_client": raw_client,
             "process_line": process_line,
             "process_values": process_values,

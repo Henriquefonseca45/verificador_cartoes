@@ -25,6 +25,8 @@ CARD_REGIONS: List[Tuple[float, float, float, float]] = [
 # Mantidos apenas para compatibilidade do projeto anterior.
 CLIENT_RECT_NORM = (0.17, 0.15, 0.49, 0.25)
 PROCESS_TABLE_RECT_NORM = (0.10, 0.68, 0.95, 0.92)
+CARD_CLIENT_RECT_NORM = (0.31, 0.08, 0.67, 0.17)
+CARD_FIRST_PROCESS_RECT_NORM = (0.02, 0.68, 0.15, 0.82)
 PROCESS_COLUMNS = ["D", "P", "CC", "FU2", "DEP", "CP", "CP4", "CP5", "A3", "D3", "F", "A", "CM", "SEE", "DPP", "FP4", "FP5", "FP3", "P6", "MCM", "P2", "E"]
 PROCESS_HEADER_HEIGHT_RATIO = 0.25
 PROCESS_ANY_TEXT_IS_VALID = True

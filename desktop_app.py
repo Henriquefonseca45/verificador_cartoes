@@ -85,6 +85,7 @@ class VerificadorApp(tk.Tk):
         self.process_thread: threading.Thread | None = None
         self.log_queue: queue.Queue[str] = queue.Queue()
         self.logo_image = None
+        self.processing_failed = False
 
         self._ensure_dirs()
         self._write_fixed_clients_file()
@@ -439,7 +440,12 @@ class VerificadorApp(tk.Tk):
             return
 
         self._write_fixed_clients_file()
+        self._clear_previous_logs()
         self._prepare_input_folder()
+        self.processing_failed = False
+        self.stat_groups.configure(text="0")
+        self.stat_valid.configure(text="0")
+        self.stat_review.configure(text="0")
         self.process_button.configure(state="disabled")
         self.progress.start(10)
         self.status_var.set("Processando PDFs...")
@@ -460,6 +466,15 @@ class VerificadorApp(tk.Tk):
             shutil.copy2(src, target)
 
         self._log(f"{len(self.selected_files)} PDF(s) copiado(s) para a pasta input.")
+
+    def _clear_previous_logs(self) -> None:
+        for name in ("summary.json", "cards_review.csv", "debug_cards.json"):
+            path = self.logs_dir / name
+            try:
+                if path.exists():
+                    path.unlink()
+            except Exception:
+                pass
 
     def _run_processing(self) -> None:
         writer = QueueWriter(self.log_queue.put)
@@ -496,6 +511,7 @@ class VerificadorApp(tk.Tk):
             self.log_queue.put("Processamento concluído com sucesso.")
 
         except Exception as exc:
+            self.processing_failed = True
             self.log_queue.put(f"Erro ao executar processamento: {exc}")
             self.log_queue.put(traceback.format_exc())
         finally:
@@ -505,7 +521,10 @@ class VerificadorApp(tk.Tk):
         self.process_button.configure(state="normal")
         self.progress.stop()
         self._refresh_summary()
-        self.status_var.set("Processamento finalizado.")
+        if self.processing_failed:
+            self.status_var.set("Erro no processamento. Veja o log de execucao.")
+        else:
+            self.status_var.set("Processamento finalizado.")
 
     def _summary_value(self, data: dict, *keys: str) -> int:
         for key in keys:
